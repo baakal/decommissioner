@@ -3,6 +3,8 @@
 DELAY=4
 PIN="1234"
 DB="ACTIVITY_LOG.sqlite3"
+BACKUP_DIRECTORY="C:\census\backup"
+CSENTRY_PATH="//sdcard/Android/data/gov.census.cspro.csentry/files/csentry/"
 
 start_intent() {
     adb -s $1 shell am start -a $2
@@ -61,12 +63,26 @@ log() {
     # The handler will sleep multiple times until at least "busy_timeout" milliseconds of sleeping have accumulated
     sqlite3 $DB "PRAGMA busy_timeout=9000; INSERT INTO results (device, result) values ('$1', '$2');" > /dev/null
 }
+get_device_identifier() {
+    device_identifier="$(adb -s $1 shell getprop ro.serialno)"
+    destination="$BACKUP_DIRECTORY/$device_identifier"
+}
+backup_csentry_data(){
+    get_device_identifier
+    adb -s $1 pull $CSENTRY_PATH $destination
+}
 
 simulate_manual_reset() {
     # Subshell runs similar to try/catch
     (
         # The -e flag will make the subshell exit immedietely on the first error
         set -e
+
+        echo -e "\nBacking: $1"
+        get_device_identifier $1
+        echo -e "Device identifier: $device_identifier"
+        backup_csentry_data $1
+        echo -e "Backup complete"
 
         echo -e "\nResetting device: $1"
 
